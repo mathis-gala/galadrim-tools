@@ -82,13 +82,13 @@ private bodies. Existing exception handling outside this prefix is preserved.
 | `/commands/update` | create fields plus booking ID/version | Committed booking |
 | `/commands/cancel` | command identity, booking ID/version | Cancelled booking ID |
 | `/commands/release` | conditional decision described below; no actor email | Booking plus immutable release snapshot |
-| `/commands/receipt` | request UUID only; no actor email | Principal- and office-scoped committed result |
+| `/commands/receipt` | request UUID and optional expected operation/input proof | Principal- and office-scoped committed result |
 | `/history` | optional `afterId`, `limit` (1–100) | Release history page within 90 days |
 
 Every successful result contains `contractVersion:1`, `officeId` and `serverNow` as
 UTC Unix milliseconds. IDs for bookings/users are decimal strings; room IDs and versions
 are positive integers. Booking fields are `id`, `officeRoomId`, `start`, `end`, nullable
-`title`, `ownerUserId`, `ownerDisplayName`, `version`, `allocationAt`, `canEdit`.
+`title`, `ownerUserId`, `ownerDisplayName`, `version`, `allocationAt`, `canEdit`, `isOwn`.
 Permission fields are display hints: every mutation rechecks current Tools rights.
 Planning includes `capabilities.canWrite` and `capabilities.canRelease` for the scoped
 credential and current switches. It returns at most 10,000 bookings; overflow is an
@@ -181,3 +181,22 @@ its trusted operational dispatcher. A missing receipt does not prove rollback.
 For update only, an unchanged legacy title up to 255 characters may be retained during
 move/resize. A changed title still has the 160-character limit, checked under the
 existing locked transaction. Ordinary Tools route limits are unchanged.
+
+
+## Two-application fixture
+
+Forest's `server/dev/roomToolsPreviewHarness.js` supports explicit `verify`, `browser`
+and bounded interactive `serve` scenarios. See its `docs/room-reservations/preview-verification.md`
+for exact commands and pending human acceptance. The companion
+`tests/functional/forest_rooms_fixture.spec.ts` is skipped by default; only the guarded
+launcher sets `TOOLS_ROOMS_LIVE_FIXTURE=1`. It verifies the dedicated SQL server/account/
+marker and refuses a pre-existing office1 before creating a synthetic office, scoped
+expiring integration token, owner/second-owner/manager identities and reviewable room
+catalog. It does not run the destructive application test seeder or load a real env file.
+
+The private handoff is written mode0600; no token is logged or returned to a browser.
+Forest consumes it only inside the internal test network. A bounded15-minute handshake
+keeps the actual Tools HTTP server available. Forest stops its own writers before ending
+that handshake; Tools then removes only the owned office/users/receipts/audits and
+asserts their absence. Fixture failures and cleanup failures remain visible. Ordinary
+Tools development data and volumes are never reset by this fixture.
